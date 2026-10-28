@@ -1,0 +1,1433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SkillSync - Smart Job Portal with AI Skill Matching</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    @keyframes slideInUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-toast {
+      animation: slideInUp 0.25s ease-out forwards;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col">
+
+  <!-- Persistent Top Header -->
+  <header class="sticky top-0 z-30 bg-white border-b border-slate-200 px-4 sm:px-6 py-3.5 flex items-center justify-between shadow-sm">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-extrabold text-lg shadow-sm">
+        💼
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="text-xl font-extrabold tracking-tight text-slate-900">SkillSync</span>
+          <span class="hidden md:inline-block text-xs bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full font-semibold">
+            AI Skill Matching Job Portal
+          </span>
+        </div>
+        <p class="text-[11px] text-slate-500 hidden sm:block">Automated NLP Resume Parsing &amp; Real-Time Candidate Ranking</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2.5 sm:gap-3">
+      <!-- Quick Resume Status Chip -->
+      <button
+        type="button"
+        onclick="switchTab('resume')"
+        class="hidden lg:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold hover:bg-emerald-100 transition cursor-pointer"
+        title="Open Resume Parser"
+      >
+        <span>📄 Resume Parsed:</span>
+        <span id="header-skill-count">6 Skills</span>
+      </button>
+
+      <!-- Role Switcher (Candidate vs Recruiter) -->
+      <div class="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+        <button
+          type="button"
+          onclick="switchRole('candidate')"
+          id="role-btn-candidate"
+          class="px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition bg-blue-600 text-white shadow-sm"
+        >
+          👨‍💻 Candidate
+        </button>
+        <button
+          type="button"
+          onclick="switchRole('recruiter')"
+          id="role-btn-recruiter"
+          class="px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-900"
+        >
+          🏢 Recruiter
+        </button>
+      </div>
+
+      <!-- Notification Bell -->
+      <button
+        type="button"
+        onclick="switchTab('notifications')"
+        title="Notifications"
+        class="relative p-2.5 rounded-full hover:bg-slate-100 border border-slate-200 transition cursor-pointer"
+      >
+        <span class="text-base leading-none">🔔</span>
+        <span
+          id="notif-badge"
+          class="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center shadow"
+        >
+          2
+        </span>
+      </button>
+
+      <!-- Clickable Profile Avatar -->
+      <button
+        type="button"
+        onclick="switchTab('profile')"
+        title="Open My Profile"
+        class="flex items-center gap-2.5 p-1.5 sm:pr-3.5 rounded-full hover:bg-slate-100 transition border border-slate-200 cursor-pointer"
+      >
+        <div
+          id="header-initials"
+          class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs sm:text-sm"
+        >
+          JD
+        </div>
+        <div class="text-left hidden sm:block">
+          <p id="header-name" class="text-xs font-bold text-slate-800 leading-tight">Jayesh Deshmukh</p>
+          <p id="header-role-label" class="text-[11px] text-blue-600 font-semibold">Full-Stack Developer</p>
+        </div>
+      </button>
+    </div>
+  </header>
+
+  <!-- Toast Alert Popup -->
+  <div
+    id="toast"
+    class="fixed bottom-16 md:bottom-6 right-4 sm:right-6 z-50 hidden bg-slate-900 text-white px-5 py-3.5 rounded-xl shadow-xl text-sm font-medium border border-slate-700 flex items-center gap-2.5 animate-toast"
+  >
+    <span id="toast-icon" class="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs font-bold shrink-0">✓</span>
+    <span id="toast-text">Action completed!</span>
+  </div>
+
+  <!-- Main Layout -->
+  <div class="flex flex-1">
+    <!-- Left Sidebar (Desktop) -->
+    <aside class="w-64 bg-white border-r border-slate-200 p-4 hidden md:flex flex-col justify-between shrink-0">
+      <nav id="sidebar-nav" class="space-y-1.5"></nav>
+
+      <div class="p-4 rounded-2xl bg-blue-50 border border-blue-100 text-xs text-blue-900 space-y-2.5">
+        <div class="flex items-center gap-2 font-bold text-blue-950">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>🤖 AI Resume Matcher</span>
+        </div>
+        <p class="text-blue-700 leading-relaxed">
+          Upload your resume to auto-extract technical skills and rank matching job roles.
+        </p>
+        <button
+          type="button"
+          onclick="switchTab('resume')"
+          class="w-full py-2.5 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition shadow-sm"
+        >
+          Upload &amp; Parse Resume →
+        </button>
+      </div>
+    </aside>
+
+    <!-- Mobile Bottom Navigation -->
+    <div
+      id="mobile-nav"
+      class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-20 flex overflow-x-auto p-2 gap-1 shadow-lg"
+    ></div>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 p-4 sm:p-6 md:p-8 pb-24 md:pb-10 max-w-6xl mx-auto w-full">
+      <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 pb-4">
+        <div>
+          <h1 id="page-title" class="text-2xl font-extrabold text-slate-900">AI Job Matches</h1>
+          <p class="text-sm text-slate-500">
+            Intelligent skill-based job matching, automated resume parsing, and live application tracking.
+          </p>
+        </div>
+        <div class="flex items-center gap-2.5 self-start sm:self-auto">
+          <button
+            type="button"
+            onclick="switchTab('resume')"
+            class="px-3.5 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition shadow-sm"
+          >
+            📄 Parse Resume
+          </button>
+          <button
+            type="button"
+            onclick="openPostJobModal()"
+            class="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition shadow-sm"
+          >
+            + Post New Job
+          </button>
+        </div>
+      </div>
+
+      <!-- TAB 1: AI JOB RECOMMENDATIONS -->
+      <div id="tab-jobs" class="space-y-6">
+        <!-- Top KPI Cards -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Top AI Match Score</p>
+            <p id="stat-top-match" class="text-3xl font-extrabold text-emerald-600 mt-1">100%</p>
+            <p class="text-xs text-slate-500 mt-1">Based on your verified skills</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Extracted Skills</p>
+            <p id="stat-skill-count" class="text-3xl font-extrabold text-blue-600 mt-1">6</p>
+            <p class="text-xs text-slate-500 mt-1">Active in matching engine</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">High-Match Jobs (≥70%)</p>
+            <p id="stat-high-jobs" class="text-3xl font-extrabold text-slate-900 mt-1">2</p>
+            <p class="text-xs text-emerald-600 font-semibold mt-1">Recommended for you</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Applications Sent</p>
+            <p id="stat-applied-count" class="text-3xl font-extrabold text-amber-600 mt-1">2</p>
+            <p class="text-xs text-slate-500 mt-1">Tracked in ATS pipeline</p>
+          </div>
+        </div>
+
+        <!-- Candidate Active Skill Bar (Interactive) -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 class="text-sm font-bold text-slate-900">Your Active Skill Profile (Live AI Matcher)</h2>
+              <p class="text-xs text-slate-500">Add or remove skills below to see job match percentages recalculate immediately:</p>
+            </div>
+            <form onsubmit="addQuickSkill(event)" class="flex gap-2">
+              <input
+                type="text"
+                id="quick-skill-input"
+                placeholder="Add skill (e.g. Docker, Python)"
+                class="px-3.5 py-1.5 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-none focus:border-blue-600"
+              />
+              <button
+                type="submit"
+                class="px-3.5 py-1.5 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition"
+              >
+                + Add Skill
+              </button>
+            </form>
+          </div>
+          <div id="active-skills-chips" class="flex flex-wrap gap-2 pt-1"></div>
+        </div>
+
+        <!-- Search & Match Filter Bar -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Search Role, Company, or Skill</label>
+            <input
+              type="text"
+              id="job-search-input"
+              oninput="renderJobs()"
+              placeholder="e.g., React, TCS, Backend..."
+              class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-blue-600"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Minimum AI Match Score</label>
+            <select
+              id="job-match-filter"
+              onchange="renderJobs()"
+              class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm font-semibold bg-white focus:outline-none focus:border-blue-600"
+            >
+              <option value="0">All Jobs (0% - 100% Match)</option>
+              <option value="50">⚡ 50%+ Match Score</option>
+              <option value="75">🔥 75%+ Strong Match</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Work Location / Type</label>
+            <select
+              id="job-loc-filter"
+              onchange="renderJobs()"
+              class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm font-semibold bg-white focus:outline-none focus:border-blue-600"
+            >
+              <option value="All">All Locations</option>
+              <option value="Nagpur">Nagpur (MIHAN IT Park)</option>
+              <option value="Pune">Pune</option>
+              <option value="Bengaluru">Bengaluru</option>
+              <option value="Remote">Remote</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Recommended Jobs List -->
+        <div id="jobs-grid" class="grid grid-cols-1 md:grid-cols-2 gap-5"></div>
+      </div>
+
+      <!-- TAB 2: RESUME UPLOAD & AI PARSER -->
+      <div id="tab-resume" class="hidden space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Upload & Raw Text Parser -->
+          <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
+            <div>
+              <h2 class="text-lg font-bold text-slate-900">📄 Intelligent Resume Upload &amp; NLP Skill Parser</h2>
+              <p class="text-xs text-slate-500">
+                Upload a resume file (`.pdf`, `.docx`, `.txt`) or load a 1-click preset template to automatically extract skills, education, and experience.
+              </p>
+            </div>
+
+            <!-- File Dropzone -->
+            <div class="border-2 border-dashed border-blue-300 bg-blue-50/50 rounded-2xl p-6 text-center space-y-3">
+              <div class="w-12 h-12 mx-auto rounded-2xl bg-blue-600 text-white flex items-center justify-center text-xl font-bold shadow-sm">
+                📤
+              </div>
+              <div>
+                <p class="text-sm font-bold text-slate-800">Select a Resume File from Your Computer</p>
+                <p class="text-xs text-slate-500">Supports PDF, DOCX, or TXT files</p>
+              </div>
+              <input
+                type="file"
+                id="resume-file-input"
+                accept=".pdf,.doc,.docx,.txt"
+                onchange="handleResumeFileUpload(event)"
+                class="block mx-auto text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer"
+              />
+            </div>
+
+            <!-- 1-Click Sample Resume Presets for Easy Demo -->
+            <div>
+              <p class="text-xs font-bold text-slate-500 uppercase mb-2">Or Test Instantly with 1-Click Preset Resumes:</p>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <button
+                  type="button"
+                  onclick="loadSampleResume('fullstack')"
+                  class="p-3 rounded-xl border border-slate-200 hover:border-blue-500 bg-slate-50 text-left transition"
+                >
+                  <p class="text-xs font-bold text-blue-700">💻 Full-Stack Web Dev</p>
+                  <p class="text-[11px] text-slate-500 mt-0.5">ReactJS, NodeJS, JS, HTML, CSS, MongoDB, Tailwind, Git</p>
+                </button>
+                <button
+                  type="button"
+                  onclick="loadSampleResume('data')"
+                  class="p-3 rounded-xl border border-slate-200 hover:border-blue-500 bg-slate-50 text-left transition"
+                >
+                  <p class="text-xs font-bold text-emerald-700">📊 Data Analyst &amp; AI</p>
+                  <p class="text-[11px] text-slate-500 mt-0.5">Python, SQL, Machine Learning, PowerBI, Pandas</p>
+                </button>
+                <button
+                  type="button"
+                  onclick="loadSampleResume('cloud')"
+                  class="p-3 rounded-xl border border-slate-200 hover:border-blue-500 bg-slate-50 text-left transition"
+                >
+                  <p class="text-xs font-bold text-violet-700">☁️ Cloud &amp; DevOps</p>
+                  <p class="text-[11px] text-slate-500 mt-0.5">AWS, Docker, Linux, Kubernetes, NodeJS, Git</p>
+                </button>
+              </div>
+            </div>
+
+            <!-- Resume Text Box -->
+            <div>
+              <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Resume Content / Raw Text to Parse</label>
+              <textarea
+                id="resume-raw-text"
+                rows="5"
+                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-mono focus:outline-none focus:border-blue-600"
+                placeholder="Paste your resume text here (e.g. B.Tech Computer Science student skilled in HTML, CSS, JavaScript, ReactJS, NodeJS, SQL, Git...)"
+              ></textarea>
+            </div>
+
+            <button
+              type="button"
+              onclick="parseResumeText()"
+              class="w-full py-3 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition shadow-sm"
+            >
+              🤖 Run AI Resume Parser &amp; Update Job Matches
+            </button>
+          </div>
+
+          <!-- Extracted Resume Output Card -->
+          <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-4">
+            <div>
+              <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+                <h3 class="text-base font-bold text-slate-900">AI Parser Output</h3>
+                <span id="parse-status-badge" class="text-[11px] bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full font-bold">
+                  Verified
+                </span>
+              </div>
+
+              <div class="mt-4 space-y-3 text-xs">
+                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                  <p class="text-slate-400 font-bold uppercase text-[10px]">Last Parsed File</p>
+                  <p id="parsed-filename" class="font-bold text-slate-800 mt-0.5">Jayesh_Deshmukh_Resume.pdf</p>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                  <p class="text-slate-400 font-bold uppercase text-[10px]">Detected Education &amp; Role</p>
+                  <p id="parsed-education" class="font-bold text-slate-800 mt-0.5">B.Tech Computer Science • Full-Stack Developer</p>
+                </div>
+                <div>
+                  <p class="text-slate-400 font-bold uppercase text-[10px] mb-2">Extracted Technical Skills</p>
+                  <div id="parsed-skills-box" class="flex flex-wrap gap-1.5"></div>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onclick="switchTab('jobs')"
+              class="w-full py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition shadow-sm"
+            >
+              View Matching Jobs →
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: APPLICATION TRACKING SYSTEM (ATS) -->
+      <div id="tab-ats" class="hidden space-y-6">
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+            <div>
+              <h2 class="text-lg font-bold text-slate-900">📋 Candidate Application Tracking System (ATS)</h2>
+              <p class="text-xs text-slate-500">Real-time hiring stage pipeline for all your submitted job applications.</p>
+            </div>
+            <button
+              type="button"
+              onclick="switchTab('jobs')"
+              class="px-3.5 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition self-start sm:self-auto"
+            >
+              + Browse More Jobs
+            </button>
+          </div>
+          <div id="ats-applications-list" class="space-y-4"></div>
+        </div>
+      </div>
+
+      <!-- TAB 4: RECRUITER DASHBOARD -->
+      <div id="tab-recruiter" class="hidden space-y-6">
+        <!-- Recruiter KPIs -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <p class="text-xs font-bold text-slate-400 uppercase">Active Job Postings</p>
+            <p id="rec-stat-jobs" class="text-3xl font-extrabold text-blue-600 mt-1">5</p>
+            <p class="text-xs text-slate-500 mt-1">Accepting AI-matched resumes</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <p class="text-xs font-bold text-slate-400 uppercase">Total Applicants</p>
+            <p id="rec-stat-apps" class="text-3xl font-extrabold text-slate-900 mt-1">4</p>
+            <p class="text-xs text-emerald-600 font-medium mt-1">Auto-ranked by AI Skill Score</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <p class="text-xs font-bold text-slate-400 uppercase">Shortlisted / Interviewing</p>
+            <p id="rec-stat-shortlisted" class="text-3xl font-extrabold text-emerald-600 mt-1">2</p>
+            <p class="text-xs text-slate-500 mt-1">High skill match candidates</p>
+          </div>
+        </div>
+
+        <!-- Candidate Filtering & ATS Management Table -->
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+              <h2 class="text-lg font-bold text-slate-900">🏢 Recruiter Applicant Filtering Console</h2>
+              <p class="text-xs text-slate-500">Filter applicants by AI Skill Match score and update their hiring stage in real time.</p>
+            </div>
+            <div class="flex gap-2">
+              <select
+                id="recruiter-filter-score"
+                onchange="renderRecruiterTable()"
+                class="px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold bg-white"
+              >
+                <option value="0">All Candidates (Any Score)</option>
+                <option value="70">🔥 Score ≥ 70% Only</option>
+                <option value="85">⭐ Top 85%+ Match Only</option>
+              </select>
+              <button
+                type="button"
+                onclick="openPostJobModal()"
+                class="px-3.5 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition"
+              >
+                + Post Job
+              </button>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr class="border-b border-slate-200 text-xs uppercase text-slate-400">
+                  <th class="py-3 px-4">Candidate &amp; Education</th>
+                  <th class="py-3 px-4">Applied Role &amp; Company</th>
+                  <th class="py-3 px-4">Verified Skills</th>
+                  <th class="py-3 px-4">AI Match Score</th>
+                  <th class="py-3 px-4">ATS Stage</th>
+                  <th class="py-3 px-4">Recruiter Decision</th>
+                </tr>
+              </thead>
+              <tbody id="recruiter-tbody" class="divide-y divide-slate-200"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 5: NOTIFICATIONS -->
+      <div id="tab-notifications" class="hidden space-y-4">
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+          <div class="flex items-center justify-between">
+            <h2 class="text-lg font-bold text-slate-900">Real-Time Job &amp; Recruiter Alerts</h2>
+            <button
+              type="button"
+              onclick="markAllNotificationsRead()"
+              class="text-xs font-bold text-blue-600 hover:underline"
+            >
+              Mark All as Read
+            </button>
+          </div>
+          <div id="notifications-list" class="space-y-3"></div>
+        </div>
+      </div>
+
+      <!-- TAB 6: MY PROFILE -->
+      <div id="tab-profile" class="hidden">
+        <div class="max-w-xl bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-4">
+              <div
+                id="profile-avatar"
+                class="w-14 h-14 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xl"
+              >
+                JD
+              </div>
+              <div>
+                <h2 id="profile-display-name" class="text-xl font-bold text-slate-900">Jayesh Deshmukh</h2>
+                <p id="profile-display-sub" class="text-xs text-blue-600 font-bold">Full-Stack Developer • B.Tech CSE</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onclick="toggleProfileEdit(true)"
+              id="edit-profile-btn"
+              class="px-4 py-2 rounded-xl bg-slate-100 text-slate-800 text-xs font-semibold hover:bg-slate-200"
+            >
+              Edit Profile
+            </button>
+          </div>
+
+          <div id="profile-view-mode" class="space-y-3 text-sm border-t border-slate-200 pt-4">
+            <div class="flex justify-between py-1.5"><span class="text-slate-500">Full Name:</span><span id="pv-name" class="font-semibold">Jayesh Deshmukh</span></div>
+            <div class="flex justify-between py-1.5"><span class="text-slate-500">Headline Role:</span><span id="pv-title" class="font-semibold text-blue-600">Full-Stack Developer</span></div>
+            <div class="flex justify-between py-1.5"><span class="text-slate-500">Education:</span><span id="pv-edu" class="font-semibold">B.Tech Computer Science</span></div>
+            <div class="flex justify-between py-1.5"><span class="text-slate-500">Phone Number:</span><span id="pv-phone" class="font-semibold">+91 98765 43210</span></div>
+            <div class="flex justify-between py-1.5"><span class="text-slate-500">Email Address:</span><span id="pv-email" class="font-semibold">jayesh@college.edu</span></div>
+          </div>
+
+          <form id="profile-edit-mode" onsubmit="saveProfile(event)" class="hidden space-y-4 border-t border-slate-200 pt-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Full Name</label>
+              <input type="text" id="pe-name" required class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm" />
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Professional Headline</label>
+              <input type="text" id="pe-title" required class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm" />
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Education / Degree</label>
+              <input type="text" id="pe-edu" required class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm" />
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Phone Number</label>
+              <input type="text" id="pe-phone" required class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm" />
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Email Address</label>
+              <input type="email" id="pe-email" required class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm" />
+            </div>
+            <div class="flex gap-3 pt-2">
+              <button type="submit" class="px-5 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700">Save Changes</button>
+              <button type="button" onclick="toggleProfileEdit(false)" class="px-5 py-2.5 bg-slate-100 text-slate-700 rounded-xl text-sm font-semibold">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- MODAL: POST NEW JOB (RECRUITER) -->
+  <div id="post-job-modal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+        <h3 class="text-lg font-bold text-slate-900">🏢 Post New Job Requirement</h3>
+        <button type="button" onclick="closePostJobModal()" class="text-slate-400 hover:text-slate-600 font-bold text-lg leading-none">✕</button>
+      </div>
+      <form onsubmit="submitNewJob(event)" class="space-y-4 mt-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Job Title</label>
+          <input type="text" id="nj-title" required placeholder="e.g., Senior ReactJS Developer" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Company Name</label>
+            <input type="text" id="nj-company" required placeholder="e.g., InfoCepts Nagpur" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Location</label>
+            <select id="nj-location" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm font-semibold bg-white">
+              <option value="Nagpur">Nagpur</option>
+              <option value="Pune">Pune</option>
+              <option value="Bengaluru">Bengaluru</option>
+              <option value="Remote">Remote</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Salary Package</label>
+            <input type="text" id="nj-salary" required value="₹8.5 - ₹12 LPA" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm font-bold" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Experience</label>
+            <input type="text" id="nj-exp" required value="0 - 2 Years" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Required Skills (Comma Separated)</label>
+          <input type="text" id="nj-skills" required value="ReactJS, JavaScript, NodeJS, Tailwind, Git" placeholder="e.g., ReactJS, NodeJS, SQL, AWS" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm font-mono" />
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button type="submit" class="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition">Publish Job &amp; Run AI Matcher</button>
+          <button type="button" onclick="closePostJobModal()" class="px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl text-sm font-semibold">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const NAV_ITEMS = [
+      { key: 'jobs', label: 'AI Job Matches', icon: '🎯' },
+      { key: 'resume', label: 'Resume Upload & Parse', icon: '📄' },
+      { key: 'ats', label: 'Application Tracker', icon: '📋' },
+      { key: 'recruiter', label: 'Recruiter Console', icon: '🏢' },
+      { key: 'notifications', label: 'Notifications', icon: '🔔' },
+      { key: 'profile', label: 'My Profile', icon: '👤' }
+    ];
+
+    let currentTab = 'jobs';
+    let currentUserRole = 'candidate';
+
+    let profile = {
+      name: 'Jayesh Deshmukh',
+      title: 'Full-Stack Developer',
+      education: 'B.Tech Computer Science',
+      phone: '+91 98765 43210',
+      email: 'jayesh@college.edu',
+      lastParsedFile: 'Jayesh_Deshmukh_Resume.pdf'
+    };
+
+    // Candidate's active skills used by the AI Matching Engine
+    let userSkills = ['HTML', 'CSS', 'JavaScript', 'ReactJS', 'NodeJS', 'Git'];
+
+    // Master dictionary of recognizable skills for the NLP Resume Parser
+    const KNOWN_SKILLS = [
+      'HTML', 'CSS', 'JavaScript', 'ReactJS', 'NodeJS', 'Express', 'MongoDB',
+      'SQL', 'Python', 'Java', 'C++', 'AWS', 'Docker', 'Kubernetes',
+      'Linux', 'Git', 'Tailwind', 'TypeScript', 'Machine Learning', 'PowerBI', 'Pandas',
+      'NextJS', 'GraphQL', 'Redis', 'Firebase'
+    ];
+
+    let jobs = [
+      {
+        id: 'JOB-101',
+        title: 'Full-Stack React & Node Developer',
+        company: 'Persistent Systems',
+        location: 'Nagpur',
+        salary: '₹7.5 - ₹11 LPA',
+        experience: 'Fresher / 0-2 Yrs',
+        requiredSkills: ['HTML', 'CSS', 'JavaScript', 'ReactJS', 'NodeJS', 'Git'],
+        posted: '2 hours ago'
+      },
+      {
+        id: 'JOB-102',
+        title: 'Frontend UI Engineer (ReactJS)',
+        company: 'TCS MIHAN Campus',
+        location: 'Nagpur',
+        salary: '₹6.0 - ₹9.0 LPA',
+        experience: '0-2 Yrs',
+        requiredSkills: ['HTML', 'CSS', 'JavaScript', 'ReactJS', 'Tailwind', 'TypeScript'],
+        posted: '5 hours ago'
+      },
+      {
+        id: 'JOB-103',
+        title: 'Backend API & Cloud Engineer',
+        company: 'TechMahindra',
+        location: 'Pune',
+        salary: '₹9.0 - ₹14 LPA',
+        experience: '1-3 Yrs',
+        requiredSkills: ['NodeJS', 'JavaScript', 'MongoDB', 'SQL', 'Docker', 'AWS'],
+        posted: '1 day ago'
+      },
+      {
+        id: 'JOB-104',
+        title: 'Data Scientist & ML Analyst',
+        company: 'InfoCepts Analytics',
+        location: 'Nagpur',
+        salary: '₹8.0 - ₹12.5 LPA',
+        experience: '0-2 Yrs',
+        requiredSkills: ['Python', 'SQL', 'Machine Learning', 'Pandas', 'PowerBI'],
+        posted: '2 days ago'
+      },
+      {
+        id: 'JOB-105',
+        title: 'DevOps & Cloud Infrastructure Engineer',
+        company: 'CloudScale Remote',
+        location: 'Remote',
+        salary: '₹10 - ₹16 LPA',
+        experience: '1-3 Yrs',
+        requiredSkills: ['AWS', 'Docker', 'Kubernetes', 'Linux', 'Git'],
+        posted: '3 days ago'
+      }
+    ];
+
+    // Candidate & Other Applicants tracked in ATS & Recruiter Console
+    let applications = [
+      {
+        id: 'APP-501',
+        jobId: 'JOB-101',
+        jobTitle: 'Full-Stack React & Node Developer',
+        company: 'Persistent Systems',
+        candidate: 'Jayesh Deshmukh',
+        education: 'B.Tech Computer Science',
+        skills: ['HTML', 'CSS', 'JavaScript', 'ReactJS', 'NodeJS', 'Git'],
+        matchScore: 100,
+        stage: 'Technical Interview',
+        appliedTime: 'Yesterday'
+      },
+      {
+        id: 'APP-502',
+        jobId: 'JOB-102',
+        jobTitle: 'Frontend UI Engineer (ReactJS)',
+        company: 'TCS MIHAN Campus',
+        candidate: 'Jayesh Deshmukh',
+        education: 'B.Tech Computer Science',
+        skills: ['HTML', 'CSS', 'JavaScript', 'ReactJS', 'NodeJS', 'Git'],
+        matchScore: 67,
+        stage: 'AI Screened',
+        appliedTime: 'Today, 09:30 AM'
+      },
+      {
+        id: 'APP-503',
+        jobId: 'JOB-104',
+        jobTitle: 'Data Scientist & ML Analyst',
+        company: 'InfoCepts Analytics',
+        candidate: 'Sneha Kulkarni',
+        education: 'M.Tech Data Science',
+        skills: ['Python', 'SQL', 'Machine Learning', 'PowerBI'],
+        matchScore: 80,
+        stage: 'Offer Extended',
+        appliedTime: '2 days ago'
+      },
+      {
+        id: 'APP-504',
+        jobId: 'JOB-103',
+        jobTitle: 'Backend API & Cloud Engineer',
+        company: 'TechMahindra',
+        candidate: 'Rohit Sharma',
+        education: 'B.E. Information Tech',
+        skills: ['NodeJS', 'SQL', 'Java'],
+        matchScore: 50,
+        stage: 'Applied',
+        appliedTime: '3 hours ago'
+      }
+    ];
+
+    let notifications = [
+      { id: 1, title: '🎯 100% AI Skill Match Found!', message: 'Your profile matches all 6 required skills for Full-Stack React & Node Developer at Persistent Systems.', time: '15 mins ago', unread: true },
+      { id: 2, title: '📅 Interview Scheduled (APP-501)', message: 'Persistent Systems moved your application to Technical Interview stage.', time: '2 hours ago', unread: true }
+    ];
+
+    function showToast(msg, isWarning = false) {
+      const toast = document.getElementById('toast');
+      const icon = document.getElementById('toast-icon');
+      const text = document.getElementById('toast-text');
+      if (!toast) return;
+
+      text.innerText = msg;
+      icon.innerText = isWarning ? '!' : '✓';
+      icon.className = `w-5 h-5 rounded-full text-white flex items-center justify-center text-xs font-bold shrink-0 ${
+        isWarning ? 'bg-rose-600' : 'bg-emerald-500'
+      }`;
+
+      toast.classList.remove('hidden');
+      clearTimeout(window.skillSyncToastTimer);
+      window.skillSyncToastTimer = setTimeout(() => {
+        toast.classList.add('hidden');
+      }, 3600);
+    }
+
+    // Calculate AI Match Score between userSkills and job.requiredSkills
+    function calculateJobMatch(requiredSkills) {
+      const lowerUser = userSkills.map(s => s.toLowerCase());
+      const matched = [];
+      const missing = [];
+
+      requiredSkills.forEach(req => {
+        if (lowerUser.includes(req.toLowerCase())) {
+          matched.push(req);
+        } else {
+          missing.push(req);
+        }
+      });
+
+      const pct = requiredSkills.length > 0 ? Math.round((matched.length / requiredSkills.length) * 100) : 100;
+      return { pct, matched, missing };
+    }
+
+    function switchRole(role) {
+      currentUserRole = role;
+      document.getElementById('role-btn-candidate').className = `px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+        role === 'candidate' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+      }`;
+      document.getElementById('role-btn-recruiter').className = `px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+        role === 'recruiter' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+      }`;
+
+      if (role === 'recruiter') {
+        switchTab('recruiter');
+        showToast('Switched to Recruiter Candidate Filtering Console');
+      } else {
+        switchTab('jobs');
+        showToast('Switched to Candidate AI Job Portal');
+      }
+    }
+
+    function renderNavigation() {
+      const nav = document.getElementById('sidebar-nav');
+      const mobileNav = document.getElementById('mobile-nav');
+
+      nav.innerHTML = NAV_ITEMS.map(item => `
+        <button
+          type="button"
+          onclick="switchTab('${item.key}')"
+          id="nav-${item.key}"
+          class="w-full text-left px-4 py-3 rounded-xl font-semibold text-sm transition flex items-center gap-3 ${
+            currentTab === item.key ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
+          }"
+        >
+          <span>${item.icon}</span> ${item.label}
+        </button>
+      `).join('');
+
+      mobileNav.innerHTML = NAV_ITEMS.map(item => `
+        <button
+          type="button"
+          onclick="switchTab('${item.key}')"
+          class="px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap ${
+            currentTab === item.key ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700'
+          }"
+        >
+          ${item.icon} ${item.label}
+        </button>
+      `).join('');
+    }
+
+    function switchTab(tabKey) {
+      currentTab = tabKey;
+      NAV_ITEMS.forEach(item => {
+        const el = document.getElementById('tab-' + item.key);
+        if (el) el.classList.add('hidden');
+      });
+
+      const target = document.getElementById('tab-' + tabKey);
+      if (target) target.classList.remove('hidden');
+
+      const found = NAV_ITEMS.find(i => i.key === tabKey);
+      if (found) document.getElementById('page-title').innerText = found.label;
+
+      renderNavigation();
+      renderAll();
+    }
+
+    // Add or Remove Skills dynamically
+    function addQuickSkill(e) {
+      e.preventDefault();
+      const input = document.getElementById('quick-skill-input');
+      const val = input.value.trim();
+      if (!val) return;
+      addSkillByName(val);
+      input.value = '';
+    }
+
+    function addSkillByName(skillName) {
+      const exists = userSkills.some(s => s.toLowerCase() === skillName.toLowerCase());
+      if (!exists) {
+        userSkills.push(skillName);
+        syncMyApplicationsMatchScore();
+        renderAll();
+        showToast(`Skill "${skillName}" added! AI Match Scores recalculated.`);
+      } else {
+        showToast(`Skill "${skillName}" is already in your profile.`);
+      }
+    }
+
+    function removeSkill(skillName) {
+      userSkills = userSkills.filter(s => s !== skillName);
+      syncMyApplicationsMatchScore();
+      renderAll();
+      showToast(`Skill "${skillName}" removed from active profile.`);
+    }
+
+    function syncMyApplicationsMatchScore() {
+      applications.forEach(app => {
+        if (app.candidate === profile.name) {
+          const job = jobs.find(j => j.id === app.jobId);
+          if (job) {
+            const res = calculateJobMatch(job.requiredSkills);
+            app.matchScore = res.pct;
+            app.skills = [...userSkills];
+          }
+        }
+      });
+    }
+
+    // Apply for a Job
+    function applyForJob(jobId) {
+      const job = jobs.find(j => j.id === jobId);
+      if (!job) return;
+
+      const already = applications.some(a => a.jobId === jobId && a.candidate === profile.name);
+      if (already) {
+        switchTab('ats');
+        showToast('You have already applied for this role! Viewing status in ATS.');
+        return;
+      }
+
+      const matchInfo = calculateJobMatch(job.requiredSkills);
+      const newApp = {
+        id: 'APP-' + Math.floor(100 + Math.random() * 900),
+        jobId: job.id,
+        jobTitle: job.title,
+        company: job.company,
+        candidate: profile.name,
+        education: profile.education,
+        skills: [...userSkills],
+        matchScore: matchInfo.pct,
+        stage: matchInfo.pct >= 75 ? 'AI Screened' : 'Applied',
+        appliedTime: 'Just now'
+      };
+
+      applications.unshift(newApp);
+      notifications.unshift({
+        id: Date.now(),
+        title: `✅ Application Sent: ${job.title}`,
+        message: `Applied to ${job.company} with ${matchInfo.pct}% AI Skill Match (${newApp.id}).`,
+        time: 'Just now',
+        unread: true
+      });
+
+      renderAll();
+      showToast(`Applied to ${job.title} (${matchInfo.pct}% AI Match)!`);
+    }
+
+    // Withdraw Application from ATS
+    function withdrawApplication(appId) {
+      const app = applications.find(a => a.id === appId);
+      if (!app) return;
+      applications = applications.filter(a => a.id !== appId);
+      renderAll();
+      showToast(`Application ${appId} (${app.jobTitle}) withdrawn.`);
+    }
+
+    // Resume Upload & AI NLP Parser Functions
+    function handleResumeFileUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      profile.lastParsedFile = file.name;
+
+      const reader = new FileReader();
+      reader.onload = function (evt) {
+        const content = evt.target.result;
+        if (content && content.length > 10 && !content.includes('\u0000')) {
+          document.getElementById('resume-raw-text').value = content.slice(0, 1500);
+        } else {
+          document.getElementById('resume-raw-text').value =
+            `Resume File: ${file.name}\nCandidate: ${profile.name}\nEducation: B.Tech Computer Science\nTechnical Skills: HTML, CSS, JavaScript, ReactJS, NodeJS, SQL, MongoDB, Tailwind, Git, AWS`;
+        }
+        parseResumeText();
+      };
+      reader.readAsText(file);
+    }
+
+    function loadSampleResume(preset) {
+      const box = document.getElementById('resume-raw-text');
+      if (preset === 'fullstack') {
+        profile.lastParsedFile = 'Jayesh_FullStack_Resume.pdf';
+        profile.title = 'Full-Stack MERN Developer';
+        box.value = `JAYESH DESHMUKH\nRole: Full-Stack MERN Developer | B.Tech Computer Science\nSummary: Experienced in building responsive web applications.\nTechnical Skills: HTML, CSS, JavaScript, ReactJS, NodeJS, Express, MongoDB, Tailwind, TypeScript, Git.`;
+      } else if (preset === 'data') {
+        profile.lastParsedFile = 'Jayesh_DataScience_Resume.pdf';
+        profile.title = 'Data Scientist & AI Engineer';
+        box.value = `JAYESH DESHMUKH\nRole: Data Scientist & AI Analyst | B.Tech Computer Science\nSummary: Skilled in statistical modeling, data pipelines, and BI dashboards.\nTechnical Skills: Python, SQL, Machine Learning, Pandas, PowerBI, Git.`;
+      } else {
+        profile.lastParsedFile = 'Jayesh_CloudDevOps_Resume.pdf';
+        profile.title = 'Cloud & DevOps Engineer';
+        box.value = `JAYESH DESHMUKH\nRole: Cloud & DevOps Engineer | B.Tech Computer Science\nSummary: Automating CI/CD pipelines and containerized cloud deployments.\nTechnical Skills: AWS, Docker, Kubernetes, Linux, NodeJS, SQL, Git.`;
+      }
+      parseResumeText();
+    }
+
+    function parseResumeText() {
+      const raw = document.getElementById('resume-raw-text').value;
+      if (!raw.trim()) {
+        showToast('Please upload a file, select a preset, or paste resume text first!', true);
+        return;
+      }
+
+      const extracted = [];
+      KNOWN_SKILLS.forEach(skill => {
+        if (raw.toLowerCase().includes(skill.toLowerCase())) {
+          extracted.push(skill);
+        }
+      });
+
+      if (extracted.length > 0) {
+        userSkills = extracted;
+      }
+
+      syncMyApplicationsMatchScore();
+
+      notifications.unshift({
+        id: Date.now(),
+        title: `🤖 Resume Parsed (${profile.lastParsedFile})`,
+        message: `AI extracted ${userSkills.length} technical skills: ${userSkills.join(', ')}.`,
+        time: 'Just now',
+        unread: true
+      });
+
+      renderAll();
+      showToast(`AI Parser extracted ${userSkills.length} skills & updated job matches!`);
+    }
+
+    // Recruiter Functions
+    function openPostJobModal() {
+      document.getElementById('post-job-modal').classList.remove('hidden');
+    }
+
+    function closePostJobModal() {
+      document.getElementById('post-job-modal').classList.add('hidden');
+    }
+
+    function submitNewJob(e) {
+      e.preventDefault();
+      const title = document.getElementById('nj-title').value.trim();
+      const company = document.getElementById('nj-company').value.trim();
+      const location = document.getElementById('nj-location').value;
+      const salary = document.getElementById('nj-salary').value.trim();
+      const experience = document.getElementById('nj-exp').value.trim();
+      const skillsRaw = document.getElementById('nj-skills').value;
+
+      const requiredSkills = skillsRaw.split(',').map(s => s.trim()).filter(Boolean);
+
+      const newJob = {
+        id: 'JOB-' + Math.floor(200 + Math.random() * 800),
+        title,
+        company,
+        location,
+        salary,
+        experience,
+        requiredSkills,
+        posted: 'Just now'
+      };
+
+      jobs.unshift(newJob);
+
+      const matchInfo = calculateJobMatch(requiredSkills);
+      notifications.unshift({
+        id: Date.now(),
+        title: `🆕 New Job Posted: ${title}`,
+        message: `${company} (${location}) posted a role with a ${matchInfo.pct}% AI match to your profile.`,
+        time: 'Just now',
+        unread: true
+      });
+
+      document.getElementById('nj-title').value = '';
+      closePostJobModal();
+      switchTab('jobs');
+      showToast(`New job "${title}" published & matched!`);
+    }
+
+    function updateApplicantStage(appId, newStage) {
+      const app = applications.find(a => a.id === appId);
+      if (!app) return;
+      app.stage = newStage;
+
+      notifications.unshift({
+        id: Date.now(),
+        title: `📋 Application Status Updated (${app.id})`,
+        message: `${app.company} updated ${app.candidate}'s status for ${app.jobTitle} to "${newStage}".`,
+        time: 'Just now',
+        unread: true
+      });
+
+      renderAll();
+      showToast(`Applicant ${app.candidate} moved to "${newStage}"!`);
+    }
+
+    function markAllNotificationsRead() {
+      notifications.forEach(n => (n.unread = false));
+      renderAll();
+      showToast('All notifications marked as read');
+    }
+
+    function getInitials(name) {
+      return name.trim().split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'SS';
+    }
+
+    function toggleProfileEdit(editing) {
+      document.getElementById('profile-view-mode').classList.toggle('hidden', editing);
+      document.getElementById('profile-edit-mode').classList.toggle('hidden', !editing);
+      document.getElementById('edit-profile-btn').classList.toggle('hidden', editing);
+      if (editing) {
+        document.getElementById('pe-name').value = profile.name;
+        document.getElementById('pe-title').value = profile.title;
+        document.getElementById('pe-edu').value = profile.education;
+        document.getElementById('pe-phone').value = profile.phone;
+        document.getElementById('pe-email').value = profile.email;
+      }
+    }
+
+    function saveProfile(e) {
+      e.preventDefault();
+      profile.name = document.getElementById('pe-name').value.trim();
+      profile.title = document.getElementById('pe-title').value.trim();
+      profile.education = document.getElementById('pe-edu').value.trim();
+      profile.phone = document.getElementById('pe-phone').value.trim();
+      profile.email = document.getElementById('pe-email').value.trim();
+      toggleProfileEdit(false);
+      renderAll();
+      showToast('Candidate profile updated!');
+    }
+
+    // Render Recommended Jobs Grid
+    function renderJobs() {
+      const searchQ = (document.getElementById('job-search-input').value || '').toLowerCase();
+      const minMatch = Number(document.getElementById('job-match-filter').value) || 0;
+      const locFilter = document.getElementById('job-loc-filter').value;
+
+      const enriched = jobs
+        .map(j => {
+          const matchInfo = calculateJobMatch(j.requiredSkills);
+          return { ...j, ...matchInfo };
+        })
+        .sort((a, b) => b.pct - a.pct);
+
+      const filtered = enriched.filter(j => {
+        const matchText =
+          j.title.toLowerCase().includes(searchQ) ||
+          j.company.toLowerCase().includes(searchQ) ||
+          j.requiredSkills.some(s => s.toLowerCase().includes(searchQ));
+        const matchScoreOk = j.pct >= minMatch;
+        const matchLocOk = locFilter === 'All' || j.location === locFilter;
+        return matchText && matchScoreOk && matchLocOk;
+      });
+
+      const grid = document.getElementById('jobs-grid');
+      if (filtered.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full bg-white p-8 rounded-2xl border border-slate-200 text-center text-sm text-slate-500">
+            No matching jobs found for the selected filter criteria. Try lowering the minimum match score or adding more skills.
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = filtered
+        .map(j => {
+          const isApplied = applications.some(a => a.jobId === j.id && a.candidate === profile.name);
+          const badgeColor =
+            j.pct >= 75
+              ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+              : j.pct >= 50
+              ? 'bg-amber-100 text-amber-800 border-amber-300'
+              : 'bg-rose-100 text-rose-800 border-rose-200';
+          const barColor = j.pct >= 75 ? 'bg-emerald-600' : j.pct >= 50 ? 'bg-amber-500' : 'bg-rose-500';
+
+          return `
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+              <div>
+                <div class="flex items-start justify-between gap-3">
+                  <div>
+                    <span class="text-xs font-bold text-blue-600">${j.company} • 📍 ${j.location}</span>
+                    <h3 class="text-lg font-extrabold text-slate-900 mt-0.5">${j.title}</h3>
+                    <p class="text-xs text-slate-500 mt-1">💰 ${j.salary} • ⏳ ${j.experience} • ${j.posted}</p>
+                  </div>
+                  <div class="text-right flex-shrink-0">
+                    <span class="inline-block px-3 py-1 rounded-full border text-xs font-extrabold ${badgeColor}">
+                      🤖 ${j.pct}% Match
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden mt-3">
+                  <div class="h-full ${barColor} transition-all" style="width: ${j.pct}%"></div>
+                </div>
+
+                <!-- Matched & Missing Skills Breakdown -->
+                <div class="mt-4 space-y-2">
+                  <p class="text-[11px] font-bold uppercase text-slate-400">Skill Requirement Breakdown (Click missing skill to add):</p>
+                  <div class="flex flex-wrap gap-1.5">
+                    ${j.matched
+                      .map(
+                        s => `
+                      <span class="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
+                        ✓ ${s}
+                      </span>
+                    `
+                      )
+                      .join('')}
+                    ${j.missing
+                      .map(
+                        s => `
+                      <button type="button" onclick="addSkillByName('${s}')" title="Click to add ${s} to your profile" class="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-xs font-semibold transition cursor-pointer">
+                        + ${s} (Missing)
+                      </button>
+                    `
+                      )
+                      .join('')}
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between">
+                <span class="text-xs text-slate-400 font-mono">${j.id}</span>
+                <button
+                  type="button"
+                  onclick="applyForJob('${j.id}')"
+                  class="px-5 py-2 rounded-xl text-xs font-bold transition ${
+                    isApplied
+                      ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                      : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
+                  }"
+                >
+                  ${isApplied ? '✓ Applied (View in ATS)' : 'Apply with AI Profile →'}
+                </button>
+              </div>
+            </div>
+          `;
+        })
+        .join('');
+    }
+
+    function renderRecruiterTable() {
+      const minScore = Number(document.getElementById('recruiter-filter-score').value) || 0;
+      const filtered = applications
+        .filter(a => a.matchScore >= minScore)
+        .sort((a, b) => b.matchScore - a.matchScore);
+
+      const stages = ['Applied', 'AI Screened', 'Technical Interview', 'Offer Extended', 'Rejected'];
+
+      document.getElementById('recruiter-tbody').innerHTML = filtered
+        .map(
+          a => `
+        <tr class="hover:bg-slate-50">
+          <td class="py-3.5 px-4">
+            <p class="font-bold text-slate-900">${a.candidate}</p>
+            <p class="text-xs text-slate-400">${a.education}</p>
+          </td>
+          <td class="py-3.5 px-4">
+            <p class="font-semibold text-slate-800">${a.jobTitle}</p>
+            <p class="text-xs text-blue-600 font-semibold">${a.company}</p>
+          </td>
+          <td class="py-3.5 px-4">
+            <div class="flex flex-wrap gap-1 max-w-xs">
+              ${a.skills
+                .slice(0, 5)
+                .map(s => `<span class="px-2 py-0.5 rounded bg-slate-100 text-[11px] font-semibold text-slate-700">${s}</span>`)
+                .join('')}
+            </div>
+          </td>
+          <td class="py-3.5 px-4">
+            <span class="px-2.5 py-1 rounded-full text-xs font-extrabold ${
+              a.matchScore >= 75
+                ? 'bg-emerald-100 text-emerald-800'
+                : a.matchScore >= 50
+                ? 'bg-amber-100 text-amber-800'
+                : 'bg-rose-100 text-rose-800'
+            }">${a.matchScore}% Match</span>
+          </td>
+          <td class="py-3.5 px-4">
+            <span class="text-xs font-bold ${
+              a.stage === 'Offer Extended'
+                ? 'text-emerald-700'
+                : a.stage === 'Rejected'
+                ? 'text-rose-600'
+                : 'text-blue-700'
+            }">${a.stage}</span>
+          </td>
+          <td class="py-3.5 px-4">
+            <select onchange="updateApplicantStage('${a.id}', this.value)" class="px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs font-bold bg-white">
+              ${stages.map(st => `<option value="${st}" ${a.stage === st ? 'selected' : ''}>${st}</option>`).join('')}
+            </select>
+          </td>
+        </tr>
+      `
+        )
+        .join('');
+    }
+
+    function renderAll() {
+      const allScores = jobs.map(j => calculateJobMatch(j.requiredSkills).pct);
+      const topScore = allScores.length ? Math.max(...allScores) : 0;
+      const highCount = allScores.filter(s => s >= 70).length;
+      const myApps = applications.filter(a => a.candidate === profile.name);
+
+      document.getElementById('stat-top-match').innerText = `${topScore}%`;
+      document.getElementById('stat-skill-count').innerText = userSkills.length;
+      document.getElementById('header-skill-count').innerText = `${userSkills.length} Skills`;
+      document.getElementById('stat-high-jobs').innerText = highCount;
+      document.getElementById('stat-applied-count').innerText = myApps.length;
+
+      // Active Skill Chips
+      document.getElementById('active-skills-chips').innerHTML = userSkills
+        .map(
+          s => `
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-800 text-xs font-bold">
+          <span>${s}</span>
+          <button type="button" onclick="removeSkill('${s}')" class="text-blue-400 hover:text-rose-600 font-extrabold">✕</button>
+        </span>
+      `
+        )
+        .join('');
+
+      // Resume Tab Output
+      document.getElementById('parsed-filename').innerText = profile.lastParsedFile;
+      document.getElementById('parsed-education').innerText = `${profile.education} • ${profile.title}`;
+      document.getElementById('parsed-skills-box').innerHTML = userSkills
+        .map(
+          s => `
+        <span class="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">✓ ${s}</span>
+      `
+        )
+        .join('');
+
+      // Render Jobs
+      renderJobs();
+
+      // Render Candidate ATS Pipeline
+      const stagesOrder = ['Applied', 'AI Screened', 'Technical Interview', 'Offer Extended'];
+      const atsContainer = document.getElementById('ats-applications-list');
+      if (myApps.length === 0) {
+        atsContainer.innerHTML = `
+          <div class="p-8 rounded-2xl border border-slate-200 text-center text-sm text-slate-500">
+            You haven't applied to any roles yet. Click "Apply with AI Profile" on any recommended job!
+          </div>
+        `;
+      } else {
+        atsContainer.innerHTML = myApps
+          .map(app => {
+            const currentIdx = stagesOrder.indexOf(app.stage);
+            return `
+            <div class="p-5 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-4">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <span class="text-xs font-bold text-blue-600">${app.company} • ${app.id}</span>
+                  <h3 class="text-base font-extrabold text-slate-900">${app.jobTitle}</h3>
+                  <p class="text-xs text-slate-500">Applied: ${app.appliedTime} • AI Skill Match: <strong class="text-emerald-700">${app.matchScore}%</strong></p>
+                </div>
+                <div class="flex items-center gap-2 self-start sm:self-auto">
+                  <span class="px-3 py-1 rounded-full text-xs font-extrabold ${
+                    app.stage === 'Offer Extended'
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : app.stage === 'Rejected'
+                      ? 'bg-rose-100 text-rose-800'
+                      : 'bg-blue-100 text-blue-800'
+                  }">
+                    Status: ${app.stage}
+                  </span>
+                  <button
+                    type="button"
+                    onclick="withdrawApplication('${app.id}')"
+                    class="px-2.5 py-1 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold hover:bg-rose-100 transition"
+                  >
+                    Withdraw
+                  </button>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
+                ${stagesOrder
+                  .map((st, idx) => {
+                    const active = currentIdx >= idx && app.stage !== 'Rejected';
+                    return `
+                    <div class="p-2.5 rounded-xl border font-bold ${
+                      active ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-400 border-slate-200'
+                    }">
+                      ${idx + 1}. ${st}
+                    </div>
+                  `;
+                  })
+                  .join('')}
+              </div>
+            </div>
+          `;
+          })
+          .join('');
+      }
+
+      // Recruiter Stats & Table
+      document.getElementById('rec-stat-jobs').innerText = jobs.length;
+      document.getElementById('rec-stat-apps').innerText = applications.length;
+      document.getElementById('rec-stat-shortlisted').innerText = applications.filter(
+        a => a.stage === 'Technical Interview' || a.stage === 'Offer Extended'
+      ).length;
+      renderRecruiterTable();
+
+      // Profile & Header
+      const initials = getInitials(profile.name);
+      document.getElementById('header-initials').innerText = initials;
+      document.getElementById('profile-avatar').innerText = initials;
+      document.getElementById('header-name').innerText = profile.name;
+      document.getElementById('header-role-label').innerText = profile.title;
+      document.getElementById('profile-display-name').innerText = profile.name;
+      document.getElementById('profile-display-sub').innerText = `${profile.title} • ${profile.education}`;
+      document.getElementById('pv-name').innerText = profile.name;
+      document.getElementById('pv-title').innerText = profile.title;
+      document.getElementById('pv-edu').innerText = profile.education;
+      document.getElementById('pv-phone').innerText = profile.phone;
+      document.getElementById('pv-email').innerText = profile.email;
+
+      // Notifications
+      const unread = notifications.filter(n => n.unread).length;
+      const badge = document.getElementById('notif-badge');
+      badge.innerText = unread;
+      badge.classList.toggle('hidden', unread === 0);
+
+      document.getElementById('notifications-list').innerHTML = notifications
+        .map(
+          n => `
+        <div class="p-4 rounded-xl border flex items-start justify-between gap-4 ${
+          n.unread ? 'bg-blue-50/60 border-blue-200' : 'bg-white border-slate-200'
+        }">
+          <div>
+            <p class="text-sm font-bold text-slate-900">${n.title}</p>
+            <p class="text-xs text-slate-600 mt-1">${n.message}</p>
+          </div>
+          <span class="text-xs text-slate-400 whitespace-nowrap">${n.time}</span>
+        </div>
+      `
+        )
+        .join('');
+    }
+
+    // Initialize Application
+    window.onload = function () {
+      document.getElementById('resume-raw-text').value =
+        `JAYESH DESHMUKH\nRole: Full-Stack Developer | B.Tech Computer Science\nTechnical Skills: HTML, CSS, JavaScript, ReactJS, NodeJS, Git`;
+      switchTab('jobs');
+    };
+  </script>
+</body>
+</html>
